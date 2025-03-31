@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>AI SQL Generator</title>
+    <link rel="stylesheet" href="index.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>AI SQL Generator</h1>
+        <div class="header-status">
+          <div id="connection-status" class="status disconnected">Database: Disconnected</div>
+          <div id="schema-indicator" class="schema-status">No Schema Loaded</div>
+        </div>
+      </header>
+
+      <main>
+        <section class="input-section">
+          <h2>Natural Language Query</h2>
+          <textarea 
+            id="natural-query" 
+            placeholder="Enter your query in plain English (e.g., 'Get the highest earning customer')"></textarea>
+          <button id="generate-btn" class="primary-btn">Generate SQL</button>
+        </section>
+
+        <section class="sql-section">
+          <h2>Generated SQL</h2>
+          <div class="code-container">
+            <pre id="sql-output">-- SQL query will appear here --</pre>
+          </div>
+          <button id="run-sql-btn" class="primary-btn" disabled>Run Query</button>
+        </section>
+
+        <section class="results-section">
+          <h2>Results</h2>
+          <div id="results-container">
+            <div class="placeholder">Run a query to see results</div>
+          </div>
+        </section>
+      </main>
+
+      <footer>
+        <div class="status-message" id="status-message"></div>
+      </footer>
+    </div>
+
+    <script src="renderer.js"></script>
+  </body>
+</html>
