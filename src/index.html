@@ -6,43 +6,67 @@
     <link rel="stylesheet" href="index.css" />
   </head>
   <body>
-    <div class="container">
-      <header>
-        <h1>AI SQL Generator</h1>
-        <div class="header-status">
-          <div id="connection-status" class="status disconnected">Database: Disconnected</div>
-          <div id="schema-indicator" class="schema-status">No Schema Loaded</div>
+    <div class="app-container">
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <button id="new-chat-btn" class="new-chat-btn">new chat</button>
+        
+        <div class="chat-history">
+          <div class="history-title">History of previous chats</div>
+          <div class="history-item">History of previous chats</div>
+          <!-- More history items would be dynamically added here -->
         </div>
-      </header>
+      </aside>
 
-      <main>
-        <section class="input-section">
-          <h2>Natural Language Query</h2>
-          <textarea 
-            id="natural-query" 
-            placeholder="Enter your query in plain English (e.g., 'Get the highest earning customer')"></textarea>
-          <button id="generate-btn" class="primary-btn">Generate SQL</button>
-        </section>
-
-        <section class="sql-section">
-          <h2>Generated SQL</h2>
-          <div class="code-container">
-            <pre id="sql-output">-- SQL query will appear here --</pre>
+      <!-- Main Content -->
+      <main class="main-content">
+        <!-- Header -->
+        <header class="main-header">
+          <h1>AI SQL Generator</h1>
+          <div class="status-info">
+            This space is for general information e.g. connection status & data
+            <div id="connection-status" class="status disconnected">Database: Disconnected</div>
+            <div id="schema-indicator" class="schema-status">No Schema Loaded</div>
           </div>
-          <button id="run-sql-btn" class="primary-btn" disabled>Run Query</button>
-        </section>
+        </header>
 
-        <section class="results-section">
-          <h2>Results</h2>
-          <div id="results-container">
-            <div class="placeholder">Run a query to see results</div>
+        <!-- Chat Area -->
+        <div class="chat-container">
+          <!-- Chat messages will appear here -->
+          <div class="message sql-message">
+            <div class="message-content">
+              <h3>Generated SQL appears here in chat format</h3>
+              <pre id="sql-output">-- SQL query will appear here --</pre>
+              <button id="run-sql-btn" class="execute-btn" disabled>Execute</button>
+            </div>
           </div>
-        </section>
+
+          <div class="message result-message">
+            <div class="message-content">
+              <h3>Results after running query against the DB</h3>
+              <div id="results-container">
+                <div class="placeholder">Run a query to see results</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="message sql-message">
+            <div class="message-content">
+              <h3>The next Generated SQL query</h3>
+            </div>
+          </div>
+        </div>
+
+        <!-- Input Area -->
+        <div class="input-area">
+          <div class="input-container">
+            <textarea 
+              id="natural-query" 
+              placeholder="This is the area to enter the natural language query"></textarea>
+            <button id="generate-btn" class="submit-btn">submit</button>
+          </div>
+        </div>
       </main>
-
-      <footer>
-        <div class="status-message" id="status-message"></div>
-      </footer>
     </div>
 
     <script src="renderer.js"></script>
