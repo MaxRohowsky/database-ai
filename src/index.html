@@ -27,7 +27,18 @@
             <button id="delete-chat-btn" class="icon-btn" title="Delete current chat">🗑️</button>
             <div class="status-info">
               This space is for general information e.g. connection status & data
-              <div id="connection-status" class="status disconnected">Database: Disconnected</div>
+              <!-- Database connection dropdown -->
+              <div class="db-connection-selector">
+                <div id="connection-status" class="status disconnected dropdown-trigger">Database: Disconnected</div>
+                <div class="connection-dropdown">
+                  <div id="database-list" class="dropdown-content">
+                    <!-- Database connections will be added here dynamically -->
+                  </div>
+                  <div class="dropdown-footer">
+                    <button id="add-connection-btn" class="connection-btn">Connect new database</button>
+                  </div>
+                </div>
+              </div>
               <div id="schema-indicator" class="schema-status">No Schema Loaded</div>
             </div>
           </div>
@@ -70,6 +81,54 @@
           </div>
         </div>
       </main>
+    </div>
+
+    <!-- Modal for Database Connection -->
+    <div id="connection-modal" class="modal">
+      <div class="modal-content">
+        <span class="close-modal">&times;</span>
+        <h2 id="modal-title">Connect to Database</h2>
+        
+        <form id="connection-form">
+          <input type="hidden" id="connection-id" value="">
+          
+          <div class="form-group">
+            <label for="connection-name">Connection Name:</label>
+            <input type="text" id="connection-name" placeholder="My Database" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="connection-host">Host:</label>
+            <input type="text" id="connection-host" placeholder="localhost" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="connection-port">Port:</label>
+            <input type="number" id="connection-port" placeholder="5432" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="connection-database">Database Name:</label>
+            <input type="text" id="connection-database" placeholder="mydatabase" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="connection-user">Username:</label>
+            <input type="text" id="connection-user" placeholder="postgres" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="connection-password">Password:</label>
+            <input type="password" id="connection-password" placeholder="********" required>
+          </div>
+          
+          <div class="form-actions">
+            <button type="submit" class="primary-btn">Save Connection</button>
+            <button type="button" id="test-connection-btn" class="secondary-btn">Test Connection</button>
+            <button type="button" id="delete-connection-btn" class="danger-btn" style="display: none;">Delete Connection</button>
+          </div>
+        </form>
+      </div>
     </div>
 
     <script src="renderer.js"></script>

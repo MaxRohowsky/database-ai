@@ -1,14 +1,71 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
-// Create a connection pool
-const pool = new Pool();
+// Store active connection pools
+const connections = {};
+let currentPool = null;
+
+/**
+ * Create a new database connection pool
+ * @param {Object} config - Database connection config
+ * @returns {Pool} Database connection pool
+ */
+function createConnectionPool(config = {}) {
+  // Use provided config or fallback to environment variables
+  const poolConfig = {
+    host: config.host || process.env.PGHOST,
+    port: config.port || process.env.PGPORT,
+    database: config.database || process.env.PGDATABASE,
+    user: config.user || process.env.PGUSER,
+    password: config.password || process.env.PGPASSWORD,
+  };
+  
+  try {
+    return new Pool(poolConfig);
+  } catch (error) {
+    console.error('Error creating connection pool:', error);
+    throw error;
+  }
+}
+
+/**
+ * Connect to a specific database
+ * @param {Object} config - Database connection config
+ * @returns {Promise<boolean>} Connection status
+ */
+async function connectToDatabase(config) {
+  try {
+    // Create connection key from config details
+    const connectionKey = `${config.host}:${config.port}/${config.database}`;
+    
+    // Check if connection already exists
+    if (!connections[connectionKey]) {
+      connections[connectionKey] = createConnectionPool(config);
+    }
+    
+    // Set as current pool
+    currentPool = connections[connectionKey];
+    
+    // Test connection
+    await currentPool.query('SELECT NOW()');
+    console.log(`Connected to database: ${config.database} on ${config.host}:${config.port}`);
+    return true;
+  } catch (error) {
+    console.error('Database connection error:', error);
+    return false;
+  }
+}
 
 /**
  * Get all tables and their columns from the database
- * @returns {Promise<Array>} Database schema information
+ * @returns {Promise<Object>} Database schema information
  */
 async function getDatabaseSchema() {
+  // Ensure we have an active connection
+  if (!currentPool) {
+    throw new Error('No active database connection');
+  }
+  
   // First, let's get detailed information about columns and constraints
   const query = `
     SELECT 
@@ -49,7 +106,7 @@ async function getDatabaseSchema() {
 
   try {
     console.log('Running schema query...');
-    const result = await pool.query(query);
+    const result = await currentPool.query(query);
     console.log(`Schema query returned ${result.rows.length} rows`);
     
     if (result.rows.length === 0) {
@@ -60,7 +117,7 @@ async function getDatabaseSchema() {
         FROM information_schema.tables 
         WHERE table_schema = 'public'
       `;
-      const tableList = await pool.query(tableListQuery);
+      const tableList = await currentPool.query(tableListQuery);
       console.log(`Found ${tableList.rows.length} tables: ${tableList.rows.map(r => r.table_name).join(', ')}`);
       
       // For each table, try to get sample data and structure
@@ -74,13 +131,13 @@ async function getDatabaseSchema() {
             FROM information_schema.columns 
             WHERE table_schema = 'public' AND table_name = $1
           `;
-          const columnInfo = await pool.query(columnQuery, [tableName]);
+          const columnInfo = await currentPool.query(columnQuery, [tableName]);
           console.log(`Table ${tableName} has columns: ${columnInfo.rows.map(c => c.column_name).join(', ')}`);
           
           // Get sample data (first row)
           console.log(`Getting sample data for table: ${tableName}`);
           const sampleQuery = `SELECT * FROM "${tableName}" LIMIT 1`;
-          const sampleData = await pool.query(sampleQuery);
+          const sampleData = await currentPool.query(sampleQuery);
           if (sampleData.rows.length > 0) {
             console.log(`Sample data for ${tableName}: ${JSON.stringify(sampleData.rows[0])}`);
           } else {
@@ -132,8 +189,13 @@ async function getDatabaseSchema() {
  * @returns {Promise<Object>} Query results
  */
 async function executeQuery(query) {
+  // Ensure we have an active connection
+  if (!currentPool) {
+    throw new Error('No active database connection');
+  }
+  
   try {
-    const result = await pool.query(query);
+    const result = await currentPool.query(query);
     
     // Create a serializable version of the result
     // Only include what's needed (rows, rowCount, fields)
@@ -172,11 +234,26 @@ async function executeQuery(query) {
 
 /**
  * Test the database connection
+ * @param {Object} config - Database connection config (optional)
  * @returns {Promise<boolean>} Connection status
  */
-async function testConnection() {
+async function testConnection(config = null) {
   try {
-    await pool.query('SELECT NOW()');
+    // If config is provided, test that specific connection
+    if (config) {
+      const tempPool = createConnectionPool(config);
+      await tempPool.query('SELECT NOW()');
+      await tempPool.end();
+      return true;
+    }
+    
+    // Otherwise test the current connection
+    if (!currentPool) {
+      // Create a default connection pool using environment variables
+      currentPool = createConnectionPool();
+    }
+    
+    await currentPool.query('SELECT NOW()');
     return true;
   } catch (error) {
     console.error('Database connection error:', error);
@@ -184,8 +261,27 @@ async function testConnection() {
   }
 }
 
+/**
+ * Close all database connections
+ */
+async function closeAllConnections() {
+  try {
+    for (const key in connections) {
+      await connections[key].end();
+      console.log(`Closed connection to ${key}`);
+    }
+    // Reset connections and current pool
+    connections = {};
+    currentPool = null;
+  } catch (error) {
+    console.error('Error closing connections:', error);
+  }
+}
+
 module.exports = {
+  connectToDatabase,
   getDatabaseSchema,
   executeQuery,
-  testConnection
+  testConnection,
+  closeAllConnections
 }; 

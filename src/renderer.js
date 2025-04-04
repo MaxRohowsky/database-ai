@@ -11,46 +11,300 @@ const newChatBtn = document.getElementById('new-chat-btn');
 const chatHistoryContainer = document.querySelector('.chat-history');
 const deleteChatBtn = document.getElementById('delete-chat-btn');
 
+// Database Connection Elements
+const connectionModal = document.getElementById('connection-modal');
+const connectionForm = document.getElementById('connection-form');
+const modalTitle = document.getElementById('modal-title');
+const connectionId = document.getElementById('connection-id');
+const connectionName = document.getElementById('connection-name');
+const connectionHost = document.getElementById('connection-host');
+const connectionPort = document.getElementById('connection-port');
+const connectionDatabase = document.getElementById('connection-database');
+const connectionUser = document.getElementById('connection-user');
+const connectionPassword = document.getElementById('connection-password');
+const testConnectionBtn = document.getElementById('test-connection-btn');
+const deleteConnectionBtn = document.getElementById('delete-connection-btn');
+const addConnectionBtn = document.getElementById('add-connection-btn');
+const connectionDropdownTrigger = document.querySelector('.dropdown-trigger');
+const databaseList = document.getElementById('database-list');
+const closeModalBtn = document.querySelector('.close-modal');
+
 // Global state
 let databaseSchema = null;
 let currentSqlQuery = null;
 let currentChatId = `chat-${Date.now()}`;
 let chatHistory = [];
+let databaseConnections = [];
+let currentConnectionId = null;
 
 // Initialize the application
 async function init() {
-  // Test database connection
+  // Load database connections from local storage
+  loadDatabaseConnections();
+  
+  // Try to connect to the last used connection, if any
+  const lastConnectionId = localStorage.getItem('lastConnectionId');
+  if (lastConnectionId) {
+    const connection = databaseConnections.find(conn => conn.id === lastConnectionId);
+    if (connection) {
+      connectToDatabase(connection);
+    }
+  }
+  
+  // Load chat history
+  loadChatHistory();
+}
+
+// Load database connections from local storage
+function loadDatabaseConnections() {
+  databaseConnections = JSON.parse(localStorage.getItem('databaseConnections') || '[]');
+  renderDatabaseList();
+}
+
+// Save database connections to local storage
+function saveDatabaseConnections() {
+  localStorage.setItem('databaseConnections', JSON.stringify(databaseConnections));
+  renderDatabaseList();
+}
+
+// Render the database connections list
+function renderDatabaseList() {
+  databaseList.innerHTML = '';
+  
+  if (databaseConnections.length === 0) {
+    const noConnectionsItem = document.createElement('div');
+    noConnectionsItem.className = 'connection-item';
+    noConnectionsItem.textContent = 'No connections available';
+    databaseList.appendChild(noConnectionsItem);
+    return;
+  }
+  
+  databaseConnections.forEach(connection => {
+    const connectionItem = document.createElement('div');
+    connectionItem.className = `connection-item ${connection.id === currentConnectionId ? 'active' : ''}`;
+    connectionItem.setAttribute('data-id', connection.id);
+    
+    const nameDiv = document.createElement('div');
+    nameDiv.className = 'connection-name';
+    nameDiv.textContent = connection.name;
+    
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = 'connection-actions';
+    
+    // Edit button
+    const editBtn = document.createElement('button');
+    editBtn.className = 'connection-edit-btn';
+    editBtn.innerHTML = '✏️';
+    editBtn.title = 'Edit connection';
+    editBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      showEditConnectionModal(connection);
+    });
+    
+    // Delete button
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'connection-delete-btn';
+    deleteBtn.innerHTML = '🗑️';
+    deleteBtn.title = 'Delete connection';
+    deleteBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (confirm(`Are you sure you want to delete the "${connection.name}" connection?`)) {
+        deleteConnection(connection.id);
+      }
+    });
+    
+    actionsDiv.appendChild(editBtn);
+    actionsDiv.appendChild(deleteBtn);
+    
+    connectionItem.appendChild(nameDiv);
+    connectionItem.appendChild(actionsDiv);
+    
+    // Connect to this database when clicked
+    connectionItem.addEventListener('click', () => {
+      connectToDatabase(connection);
+    });
+    
+    databaseList.appendChild(connectionItem);
+  });
+}
+
+// Connect to a database
+async function connectToDatabase(connection) {
   try {
-    const connected = await window.api.testConnection();
-    updateConnectionStatus(connected);
+    displayStatusMessage(`Connecting to ${connection.name}...`);
+    
+    // Call the API to connect to the database
+    const connected = await window.api.connectToDatabase({
+      host: connection.host,
+      port: connection.port,
+      database: connection.database,
+      user: connection.user,
+      password: connection.password
+    });
     
     if (connected) {
-      // Fetch database schema if connected
+      // Update current connection ID
+      currentConnectionId = connection.id;
+      localStorage.setItem('lastConnectionId', connection.id);
+      
+      // Update UI
+      updateConnectionStatus(true, connection.name);
+      
+      // Fetch database schema
       databaseSchema = await window.api.getSchema();
       
       if (databaseSchema && Object.keys(databaseSchema).length > 0) {
         displaySchemaInfo(databaseSchema);
-        displayStatusMessage(`Schema loaded: ${Object.keys(databaseSchema).length} tables available`);
+        displayStatusMessage(`Connected to ${connection.name}`);
       } else {
-        displayStatusMessage('Connected but no tables found in schema', true);
+        displayStatusMessage(`Connected to ${connection.name} but no tables found`, true);
       }
+      
+      // Render the database list to show active connection
+      renderDatabaseList();
+    } else {
+      throw new Error('Failed to connect to database');
     }
-    
-    // Load chat history
-    loadChatHistory();
   } catch (error) {
-    console.error('Initialization error:', error);
-    displayStatusMessage(`Error: ${error.message}`, true);
+    console.error('Connection error:', error);
+    displayStatusMessage(`Error connecting to ${connection.name}: ${error.message}`, true);
+    updateConnectionStatus(false);
   }
+}
+
+// Test connection to database
+async function testDatabaseConnection() {
+  // Get connection details from form
+  const connectionDetails = {
+    host: connectionHost.value,
+    port: parseInt(connectionPort.value),
+    database: connectionDatabase.value,
+    user: connectionUser.value,
+    password: connectionPassword.value
+  };
+  
+  try {
+    displayStatusMessage('Testing connection...');
+    
+    // Call the API to test the connection
+    const connected = await window.api.testConnection(connectionDetails);
+    
+    if (connected) {
+      displayStatusMessage('Connection successful!');
+      return true;
+    } else {
+      displayStatusMessage('Connection failed', true);
+      return false;
+    }
+  } catch (error) {
+    console.error('Test connection error:', error);
+    displayStatusMessage(`Connection failed: ${error.message}`, true);
+    return false;
+  }
+}
+
+// Show add connection modal
+function showAddConnectionModal() {
+  modalTitle.textContent = 'Connect to Database';
+  connectionId.value = '';
+  connectionForm.reset();
+  deleteConnectionBtn.style.display = 'none';
+  connectionModal.classList.add('show');
+}
+
+// Show edit connection modal
+function showEditConnectionModal(connection) {
+  modalTitle.textContent = 'Edit Database Connection';
+  connectionId.value = connection.id;
+  connectionName.value = connection.name;
+  connectionHost.value = connection.host;
+  connectionPort.value = connection.port;
+  connectionDatabase.value = connection.database;
+  connectionUser.value = connection.user;
+  connectionPassword.value = connection.password;
+  deleteConnectionBtn.style.display = 'block';
+  connectionModal.classList.add('show');
+}
+
+// Hide connection modal
+function hideConnectionModal() {
+  connectionModal.classList.remove('show');
+}
+
+// Handle connection form submit
+async function handleConnectionFormSubmit(e) {
+  e.preventDefault();
+  
+  // Get connection details from form
+  const connectionDetails = {
+    name: connectionName.value,
+    host: connectionHost.value,
+    port: parseInt(connectionPort.value),
+    database: connectionDatabase.value,
+    user: connectionUser.value,
+    password: connectionPassword.value
+  };
+  
+  // Check if editing or adding
+  const isEditing = connectionId.value !== '';
+  
+  if (isEditing) {
+    // Update existing connection
+    const index = databaseConnections.findIndex(conn => conn.id === connectionId.value);
+    if (index !== -1) {
+      connectionDetails.id = connectionId.value;
+      databaseConnections[index] = connectionDetails;
+      saveDatabaseConnections();
+      
+      // If the current connection was updated, reconnect
+      if (currentConnectionId === connectionId.value) {
+        connectToDatabase(connectionDetails);
+      }
+      
+      displayStatusMessage(`Connection "${connectionDetails.name}" updated`);
+    }
+  } else {
+    // Add new connection
+    connectionDetails.id = `conn-${Date.now()}`;
+    databaseConnections.push(connectionDetails);
+    saveDatabaseConnections();
+    displayStatusMessage(`Connection "${connectionDetails.name}" added`);
+    
+    // Connect to the new database
+    connectToDatabase(connectionDetails);
+  }
+  
+  hideConnectionModal();
+}
+
+// Delete a database connection
+function deleteConnection(id) {
+  // Find index
+  const index = databaseConnections.findIndex(conn => conn.id === id);
+  if (index === -1) return;
+  
+  // Get connection name
+  const connectionName = databaseConnections[index].name;
+  
+  // Remove connection
+  databaseConnections.splice(index, 1);
+  saveDatabaseConnections();
+  
+  // If current connection was deleted, disconnect
+  if (currentConnectionId === id) {
+    currentConnectionId = null;
+    localStorage.removeItem('lastConnectionId');
+    updateConnectionStatus(false);
+    databaseSchema = null;
+  }
+  
+  displayStatusMessage(`Connection "${connectionName}" deleted`);
 }
 
 // Display schema information in the UI
 function displaySchemaInfo(schema) {
   // Get the table count
   const tableCount = Object.keys(schema).length;
-  
-  // Update the connection status to include table count
-  connectionStatus.textContent = `Database: Connected (${tableCount} tables)`;
   
   // Update schema indicator
   let tablesText = Object.keys(schema).slice(0, 3).join(', ');
@@ -68,18 +322,24 @@ function displaySchemaInfo(schema) {
 }
 
 // Update the connection status UI
-function updateConnectionStatus(connected) {
-  connectionStatus.textContent = `Database: ${connected ? 'Connected' : 'Disconnected'}`;
-  connectionStatus.className = `status ${connected ? 'connected' : 'disconnected'}`;
-  
-  // Update schema indicator based on connection
-  if (!connected) {
+function updateConnectionStatus(connected, connectionName = '') {
+  if (connected) {
+    connectionStatus.textContent = `Database: Connected (${connectionName})`;
+    connectionStatus.className = 'status connected dropdown-trigger';
+    
+    // Enable UI based on connection status
+    generateBtn.disabled = false;
+  } else {
+    connectionStatus.textContent = 'Database: Disconnected';
+    connectionStatus.className = 'status disconnected dropdown-trigger';
+    
+    // Update schema indicator based on connection
     schemaIndicator.textContent = 'No Schema (Disconnected)';
     schemaIndicator.style.color = '#888';
+    
+    // Disable UI based on connection status
+    generateBtn.disabled = true;
   }
-  
-  // Enable/disable UI based on connection status
-  generateBtn.disabled = !connected;
 }
 
 // Display a status message
@@ -646,6 +906,25 @@ generateBtn.addEventListener('click', generateSql);
 newChatBtn.addEventListener('click', startNewChat);
 runSqlBtn.addEventListener('click', executeQuery);
 deleteChatBtn.addEventListener('click', deleteCurrentChat);
+
+// Connection modal events
+addConnectionBtn.addEventListener('click', showAddConnectionModal);
+closeModalBtn.addEventListener('click', hideConnectionModal);
+connectionForm.addEventListener('submit', handleConnectionFormSubmit);
+testConnectionBtn.addEventListener('click', testDatabaseConnection);
+deleteConnectionBtn.addEventListener('click', () => {
+  if (confirm('Are you sure you want to delete this connection?')) {
+    deleteConnection(connectionId.value);
+    hideConnectionModal();
+  }
+});
+
+// Close modal when clicking outside
+connectionModal.addEventListener('click', (e) => {
+  if (e.target === connectionModal) {
+    hideConnectionModal();
+  }
+});
 
 // Enter key in textarea
 naturalQueryInput.addEventListener('keydown', (e) => {

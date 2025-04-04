@@ -6,7 +6,8 @@ const { contextBridge, ipcRenderer } = require('electron');
 // Expose API to renderer process
 contextBridge.exposeInMainWorld('api', {
   // Database operations
-  testConnection: () => ipcRenderer.invoke('db:testConnection'),
+  testConnection: (config) => ipcRenderer.invoke('db:testConnection', config),
+  connectToDatabase: (config) => ipcRenderer.invoke('db:connectToDatabase', config),
   getSchema: () => ipcRenderer.invoke('db:getSchema'),
   executeQuery: (query) => ipcRenderer.invoke('db:executeQuery', query),
   

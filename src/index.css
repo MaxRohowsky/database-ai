@@ -530,3 +530,220 @@ footer {
 .icon-btn:hover {
   opacity: 1;
 }
+
+/* Database Connection Dropdown */
+.db-connection-selector {
+  position: relative;
+  display: inline-block;
+}
+
+.dropdown-trigger {
+  cursor: pointer;
+  position: relative;
+}
+
+.dropdown-trigger:after {
+  content: '▼';
+  font-size: 10px;
+  margin-left: 5px;
+  vertical-align: middle;
+}
+
+.connection-dropdown {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: 40px;
+  background-color: white;
+  min-width: 250px;
+  border-radius: 4px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  z-index: 10;
+}
+
+.db-connection-selector:hover .connection-dropdown {
+  display: block;
+}
+
+.dropdown-content {
+  max-height: 250px;
+  overflow-y: auto;
+}
+
+.dropdown-footer {
+  padding: 10px;
+  border-top: 1px solid var(--border-color);
+}
+
+.connection-item {
+  padding: 10px 15px;
+  border-bottom: 1px solid var(--border-color);
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.connection-item:hover {
+  background-color: #f5f5f5;
+}
+
+.connection-item.active {
+  background-color: #e3f2fd;
+}
+
+.connection-btn {
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  width: 100%;
+}
+
+.connection-btn:hover {
+  background-color: #3a76d8;
+}
+
+.connection-actions {
+  display: flex;
+  gap: 5px;
+}
+
+.connection-edit-btn, .connection-delete-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+  font-size: 14px;
+}
+
+.connection-edit-btn:hover, .connection-delete-btn:hover {
+  opacity: 1;
+}
+
+.connection-delete-btn {
+  color: var(--error-color);
+}
+
+/* Modal Styles */
+.modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 100;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s, visibility 0.3s;
+}
+
+.modal.show {
+  opacity: 1;
+  visibility: visible;
+}
+
+.modal-content {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  padding: 20px;
+  width: 500px;
+  max-width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+}
+
+.close-modal {
+  position: absolute;
+  top: 15px;
+  right: 20px;
+  font-size: 24px;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.close-modal:hover {
+  opacity: 1;
+}
+
+/* Form Styles */
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.form-group input:focus {
+  border-color: var(--primary-color);
+  outline: none;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20px;
+  gap: 10px;
+}
+
+.primary-btn, .secondary-btn, .danger-btn {
+  padding: 10px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+
+.primary-btn {
+  background-color: var(--primary-color);
+  color: white;
+  flex: 1;
+}
+
+.primary-btn:hover {
+  background-color: #3a76d8;
+}
+
+.secondary-btn {
+  background-color: #f0f0f0;
+  color: #333;
+  flex: 1;
+}
+
+.secondary-btn:hover {
+  background-color: #e0e0e0;
+}
+
+.danger-btn {
+  background-color: var(--error-color);
+  color: white;
+  flex: 1;
+}
+
+.danger-btn:hover {
+  background-color: #c62828;
+}

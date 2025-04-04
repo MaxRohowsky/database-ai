@@ -14,11 +14,27 @@ if (require('electron-squirrel-startup')) {
 // Set up IPC handlers
 function setupIPC() {
   // Database operations
-  ipcMain.handle('db:testConnection', async () => {
+  ipcMain.handle('db:testConnection', async (_, config) => {
     try {
-      return await dbService.testConnection();
+      return await dbService.testConnection(config);
     } catch (error) {
       console.error('Connection test error:', error);
+      throw new Error(`Connection failed: ${error.message}`);
+    }
+  });
+
+  ipcMain.handle('db:connectToDatabase', async (_, config) => {
+    try {
+      console.log('Connecting to database:', config.database, 'on', config.host);
+      const result = await dbService.connectToDatabase(config);
+      if (result) {
+        console.log('Connected to database successfully');
+      } else {
+        console.log('Failed to connect to database');
+      }
+      return result;
+    } catch (error) {
+      console.error('Database connection error:', error);
       throw new Error(`Connection failed: ${error.message}`);
     }
   });
@@ -114,6 +130,12 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
+});
+
+// Close database connections when app is about to quit
+app.on('before-quit', async () => {
+  console.log('Application is closing, closing database connections...');
+  await dbService.closeAllConnections();
 });
 
 // In this file you can include the rest of your app's specific main process
