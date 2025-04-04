@@ -930,7 +930,13 @@ connectionModal.addEventListener('click', (e) => {
 naturalQueryInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
-    generateSql();
+    // If input is empty and we have a SQL query to execute, run it
+    if (naturalQueryInput.value.trim() === '' && currentSqlQuery) {
+      executeQuery();
+    } else {
+      // Otherwise generate SQL from the user input
+      generateSql();
+    }
   }
 });
 
