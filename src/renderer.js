@@ -9,6 +9,7 @@ const resultsContainer = document.getElementById('results-container');
 const chatContainer = document.querySelector('.chat-container');
 const newChatBtn = document.getElementById('new-chat-btn');
 const chatHistoryContainer = document.querySelector('.chat-history');
+const deleteChatBtn = document.getElementById('delete-chat-btn');
 
 // Global state
 let databaseSchema = null;
@@ -196,9 +197,22 @@ function addUserMessage(text) {
   const contentDiv = document.createElement('div');
   contentDiv.className = 'message-content';
   
+  // Add delete icon to the message
+  const deleteIcon = document.createElement('span');
+  deleteIcon.className = 'delete-message-icon';
+  deleteIcon.innerHTML = '🗑️'; // Bin emoji
+  deleteIcon.title = "Delete message";
+  deleteIcon.addEventListener('click', () => {
+    if (confirm('Delete this message?')) {
+      messageDiv.remove();
+      saveChatToHistory('Message deleted');
+    }
+  });
+  
   const messageContent = document.createElement('p');
   messageContent.textContent = text;
   
+  contentDiv.appendChild(deleteIcon);
   contentDiv.appendChild(messageContent);
   messageDiv.appendChild(contentDiv);
   
@@ -211,7 +225,7 @@ function addUserMessage(text) {
 // Add SQL message to chat
 function addSqlMessage(sql) {
   // Remove the current SQL template message if it exists
-  const existingSqlMessages = document.querySelectorAll('.sql-message:empty');
+  const existingSqlMessages = document.querySelectorAll('.sql-message.empty');
   existingSqlMessages.forEach(msg => msg.remove());
   
   const messageDiv = document.createElement('div');
@@ -225,21 +239,158 @@ function addSqlMessage(sql) {
   
   const pre = document.createElement('pre');
   pre.textContent = sql;
+  pre.className = 'sql-content';
+  // Make the pre element clickable to edit in place
+  pre.addEventListener('click', () => {
+    makePreEditable(pre, sql);
+  });
+  
+  const buttonContainer = document.createElement('div');
+  buttonContainer.className = 'sql-buttons';
   
   const executeButton = document.createElement('button');
   executeButton.textContent = 'Execute';
   executeButton.className = 'execute-btn';
   executeButton.addEventListener('click', executeQuery);
   
+  buttonContainer.appendChild(executeButton);
+  
   contentDiv.appendChild(heading);
   contentDiv.appendChild(pre);
-  contentDiv.appendChild(executeButton);
+  contentDiv.appendChild(buttonContainer);
   messageDiv.appendChild(contentDiv);
   
   chatContainer.appendChild(messageDiv);
   
   // Scroll to bottom
   chatContainer.scrollTop = chatContainer.scrollHeight;
+}
+
+// Make pre element editable by replacing it with a textarea
+function makePreEditable(preElement, originalSql) {
+  const messageDiv = preElement.closest('.sql-message');
+  const contentDiv = messageDiv.querySelector('.message-content');
+  const buttonContainer = messageDiv.querySelector('.sql-buttons');
+  
+  // Store original SQL for reset
+  messageDiv.setAttribute('data-original-sql', originalSql);
+  
+  // Create textarea with same content
+  const textarea = document.createElement('textarea');
+  textarea.className = 'editable-sql';
+  textarea.value = preElement.textContent;
+  
+  // Replace the pre with textarea
+  contentDiv.replaceChild(textarea, preElement);
+  
+  // Add edit instructions tooltip
+  showEditInstructions();
+  
+  // Focus the textarea
+  textarea.focus();
+  
+  // Add keyboard shortcut to finish editing (Ctrl+Enter)
+  textarea.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      finishEditing(textarea);
+    }
+  });
+  
+  // Check if reset button already exists
+  if (!buttonContainer.querySelector('.reset-sql-btn')) {
+    // Add reset button
+    const resetButton = document.createElement('button');
+    resetButton.textContent = 'Reset';
+    resetButton.className = 'reset-sql-btn';
+    resetButton.addEventListener('click', () => {
+      // Restore original SQL
+      textarea.value = messageDiv.getAttribute('data-original-sql');
+    });
+    
+    // Add it before the execute button
+    buttonContainer.insertBefore(resetButton, buttonContainer.firstChild);
+  }
+  
+  // Update execute button to use the textarea value
+  const executeButton = buttonContainer.querySelector('.execute-btn');
+  executeButton.removeEventListener('click', executeQuery);
+  executeButton.addEventListener('click', () => {
+    // Update current SQL and execute
+    currentSqlQuery = textarea.value;
+    executeQuery();
+  });
+}
+
+// Show editing instructions tooltip
+function showEditInstructions() {
+  // Create tooltip
+  const tooltip = document.createElement('div');
+  tooltip.className = 'edit-tooltip';
+  tooltip.textContent = 'Press Ctrl+Enter to finish editing';
+  document.body.appendChild(tooltip);
+  
+  // Position it at the bottom of the screen
+  tooltip.style.position = 'fixed';
+  tooltip.style.bottom = '20px';
+  tooltip.style.left = '50%';
+  tooltip.style.transform = 'translateX(-50%)';
+  
+  // Remove after 4 seconds
+  setTimeout(() => {
+    if (document.body.contains(tooltip)) {
+      document.body.removeChild(tooltip);
+    }
+  }, 4000);
+}
+
+// Convert textarea back to pre after editing
+function finishEditing(textarea) {
+  const messageDiv = textarea.closest('.sql-message');
+  const contentDiv = messageDiv.querySelector('.message-content');
+  const buttonContainer = messageDiv.querySelector('.sql-buttons');
+  
+  // Get the edited SQL
+  const sql = textarea.value;
+  currentSqlQuery = sql;
+  
+  // Create new pre element
+  const pre = document.createElement('pre');
+  pre.className = 'sql-content';
+  pre.textContent = sql;
+  
+  // Add click listener to make it editable again
+  pre.addEventListener('click', () => {
+    makePreEditable(pre, messageDiv.getAttribute('data-original-sql'));
+  });
+  
+  // Replace textarea with pre
+  contentDiv.replaceChild(pre, textarea);
+  
+  // If content was changed, add an indicator
+  if (sql !== messageDiv.getAttribute('data-original-sql')) {
+    const heading = contentDiv.querySelector('h3');
+    if (!heading.querySelector('.edited-indicator')) {
+      const editedSpan = document.createElement('span');
+      editedSpan.className = 'edited-indicator';
+      editedSpan.textContent = '(Edited)';
+      heading.appendChild(editedSpan);
+    }
+  }
+  
+  // Remove reset button if exists
+  const resetButton = buttonContainer.querySelector('.reset-sql-btn');
+  if (resetButton) {
+    buttonContainer.removeChild(resetButton);
+  }
+  
+  // Restore execute button behavior
+  const executeButton = buttonContainer.querySelector('.execute-btn');
+  executeButton.removeEventListener('click', executeQuery);
+  executeButton.addEventListener('click', executeQuery);
+  
+  // Save to chat history
+  saveChatToHistory('Edited SQL query');
 }
 
 // Add result message to chat
@@ -308,9 +459,6 @@ function addResultMessage(result) {
   
   // Scroll to bottom
   chatContainer.scrollTop = chatContainer.scrollHeight;
-  
-  // Add empty SQL message for next query
-  addEmptySqlMessage();
 }
 
 // Add error message to chat
@@ -336,26 +484,6 @@ function addErrorMessage(errorText) {
   
   // Scroll to bottom
   chatContainer.scrollTop = chatContainer.scrollHeight;
-  
-  // Add empty SQL message for next query
-  addEmptySqlMessage();
-}
-
-// Add empty SQL message for next query
-function addEmptySqlMessage() {
-  const messageDiv = document.createElement('div');
-  messageDiv.className = 'message sql-message empty';
-  
-  const contentDiv = document.createElement('div');
-  contentDiv.className = 'message-content';
-  
-  const heading = document.createElement('h3');
-  heading.textContent = 'The next Generated SQL query';
-  
-  contentDiv.appendChild(heading);
-  messageDiv.appendChild(contentDiv);
-  
-  chatContainer.appendChild(messageDiv);
 }
 
 // Start a new chat
@@ -369,8 +497,7 @@ function startNewChat() {
   // Generate new chat ID
   currentChatId = `chat-${Date.now()}`;
   
-  // Add empty SQL message
-  addEmptySqlMessage();
+  // Don't add empty SQL message
   
   // Clear input field
   naturalQueryInput.value = '';
@@ -428,10 +555,26 @@ function loadChatHistory() {
   chatHistory.forEach(chat => {
     const historyItem = document.createElement('div');
     historyItem.className = 'history-item';
-    historyItem.textContent = chat.title;
     historyItem.setAttribute('data-chat-id', chat.id);
     
-    historyItem.addEventListener('click', () => loadChat(chat));
+    // Add title span
+    const titleSpan = document.createElement('span');
+    titleSpan.className = 'history-item-title';
+    titleSpan.textContent = chat.title;
+    titleSpan.addEventListener('click', () => loadChat(chat));
+    
+    // Add delete icon
+    const deleteIcon = document.createElement('span');
+    deleteIcon.className = 'delete-chat-icon';
+    deleteIcon.innerHTML = '🗑️'; // Bin emoji as the delete icon
+    deleteIcon.title = "Delete chat";
+    deleteIcon.addEventListener('click', (e) => {
+      e.stopPropagation(); // Prevent triggering the parent click event
+      deleteChat(chat.id);
+    });
+    
+    historyItem.appendChild(titleSpan);
+    historyItem.appendChild(deleteIcon);
     
     historyContainer.appendChild(historyItem);
   });
@@ -445,6 +588,9 @@ function loadChat(chat) {
   // Load chat content
   chatContainer.innerHTML = chat.content;
   
+  // Re-attach event handlers to all buttons in the chat
+  reattachEventHandlers();
+  
   // Get the last SQL query if any
   const sqlMessages = document.querySelectorAll('.sql-message:not(.empty)');
   if (sqlMessages.length > 0) {
@@ -456,10 +602,50 @@ function loadChat(chat) {
   displayStatusMessage(`Loaded chat: ${chat.title}`);
 }
 
+// Re-attach event handlers to buttons and interactive elements
+function reattachEventHandlers() {
+  // Re-attach execute buttons
+  document.querySelectorAll('.execute-btn').forEach(button => {
+    const messageDiv = button.closest('.sql-message');
+    const textarea = messageDiv.querySelector('.editable-sql');
+    
+    // If there's a textarea, use its value, otherwise use the default executeQuery
+    if (textarea) {
+      button.removeEventListener('click', executeQuery);
+      button.addEventListener('click', () => {
+        currentSqlQuery = textarea.value;
+        executeQuery();
+      });
+    } else {
+      button.addEventListener('click', executeQuery);
+    }
+  });
+  
+  // Re-attach reset buttons
+  document.querySelectorAll('.reset-sql-btn').forEach(button => {
+    button.addEventListener('click', () => {
+      const messageDiv = button.closest('.sql-message');
+      const textarea = messageDiv.querySelector('.editable-sql');
+      if (textarea && messageDiv.hasAttribute('data-original-sql')) {
+        textarea.value = messageDiv.getAttribute('data-original-sql');
+      }
+    });
+  });
+  
+  // Make pre elements clickable for editing
+  document.querySelectorAll('.sql-content').forEach(pre => {
+    const messageDiv = pre.closest('.sql-message');
+    pre.addEventListener('click', () => {
+      makePreEditable(pre, pre.textContent);
+    });
+  });
+}
+
 // Event Listeners
 generateBtn.addEventListener('click', generateSql);
 newChatBtn.addEventListener('click', startNewChat);
 runSqlBtn.addEventListener('click', executeQuery);
+deleteChatBtn.addEventListener('click', deleteCurrentChat);
 
 // Enter key in textarea
 naturalQueryInput.addEventListener('keydown', (e) => {
@@ -468,6 +654,45 @@ naturalQueryInput.addEventListener('keydown', (e) => {
     generateSql();
   }
 });
+
+// Delete a chat from history
+function deleteChat(chatId) {
+  // Ask for confirmation
+  if (!confirm('Are you sure you want to delete this chat?')) {
+    return;
+  }
+  
+  // Get history from local storage
+  const existingHistory = JSON.parse(localStorage.getItem('chatHistory') || '[]');
+  
+  // Filter out the chat with the specified ID
+  const updatedHistory = existingHistory.filter(chat => chat.id !== chatId);
+  
+  // Save back to storage
+  localStorage.setItem('chatHistory', JSON.stringify(updatedHistory));
+  
+  // Reload chat history display
+  loadChatHistory();
+  
+  // If the current chat was deleted, start a new one
+  if (chatId === currentChatId) {
+    startNewChat();
+  }
+  
+  displayStatusMessage('Chat deleted');
+}
+
+// Delete current chat
+function deleteCurrentChat() {
+  if (!currentChatId) {
+    displayStatusMessage('No active chat to delete', true);
+    return;
+  }
+  
+  if (confirm('Are you sure you want to delete the current chat?')) {
+    deleteChat(currentChatId);
+  }
+}
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', () => {
