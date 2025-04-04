@@ -1,19 +1,89 @@
 const { OpenAI } = require('openai');
+const axios = require('axios');
 require('dotenv').config();
 
-// Initialize OpenAI API client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
+// AI model configuration store
+let modelConfigs = {
+  openai: {
+    apiKey: process.env.OPENAI_API_KEY || '',
+    model: 'gpt-3.5-turbo'
+  },
+  claude: {
+    apiKey: process.env.CLAUDE_API_KEY || '',
+    model: 'claude-3-opus-20240229'
+  }
+};
+
+// Initialize OpenAI API client (will be updated when config changes)
+let openai = new OpenAI({
+  apiKey: modelConfigs.openai.apiKey
 });
 
 /**
- * Generate SQL from natural language query
+ * Update AI model configuration
+ * @param {string} provider - AI provider (openai or claude)
+ * @param {Object} config - Configuration object with apiKey and model
+ * @returns {boolean} Success status
+ */
+function updateModelConfig(provider, config) {
+  try {
+    if (!provider || !config) {
+      throw new Error('Invalid configuration');
+    }
+    
+    // Update the stored configuration
+    modelConfigs[provider] = {
+      ...modelConfigs[provider],
+      ...config
+    };
+    
+    // If it's OpenAI, reinitialize the client
+    if (provider === 'openai') {
+      openai = new OpenAI({
+        apiKey: modelConfigs.openai.apiKey
+      });
+    }
+    
+    console.log(`Updated ${provider} configuration:`, {
+      model: modelConfigs[provider].model,
+      apiKey: modelConfigs[provider].apiKey ? '****' : 'Not set'
+    });
+    
+    return true;
+  } catch (error) {
+    console.error('Error updating model configuration:', error);
+    return false;
+  }
+}
+
+/**
+ * Get current AI model configurations
+ * @returns {Object} Current model configurations (without API keys)
+ */
+function getModelConfigs() {
+  // Return a copy without the API keys for security
+  return {
+    openai: {
+      model: modelConfigs.openai.model,
+      hasApiKey: !!modelConfigs.openai.apiKey
+    },
+    claude: {
+      model: modelConfigs.claude.model,
+      hasApiKey: !!modelConfigs.claude.apiKey
+    }
+  };
+}
+
+/**
+ * Generate SQL from natural language query using the specified model
  * @param {string} naturalLanguageQuery - User's natural language query
  * @param {Object} databaseSchema - Database schema information
+ * @param {string} provider - AI provider to use (openai or claude)
  * @returns {Promise<string>} Generated SQL query
  */
-async function generateSqlQuery(naturalLanguageQuery, databaseSchema) {
+async function generateSqlQuery(naturalLanguageQuery, databaseSchema, provider = 'openai') {
   try {
+    console.log(`Using ${provider} to generate SQL`);
     console.log('Database schema for AI:', JSON.stringify(databaseSchema, null, 2));
     
     if (!databaseSchema || Object.keys(databaseSchema).length === 0) {
@@ -77,16 +147,56 @@ SQL QUERY:
     // Log the prompt for debugging
     console.log('Prompt for AI:', prompt);
 
-    // Call OpenAI API
-    const response = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.1, // Low temperature for more deterministic responses
-      max_tokens: 1000
-    });
+    let generatedSQL;
+    
+    // Use the selected provider
+    if (provider === 'openai') {
+      if (!modelConfigs.openai.apiKey) {
+        throw new Error('OpenAI API key not configured');
+      }
+      
+      // Call OpenAI API
+      const response = await openai.chat.completions.create({
+        model: modelConfigs.openai.model,
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.1, // Low temperature for more deterministic responses
+        max_tokens: 1000
+      });
 
-    // Extract the SQL query
-    const generatedSQL = response.choices[0].message.content.trim();
+      // Extract the SQL query
+      generatedSQL = response.choices[0].message.content.trim();
+    } 
+    else if (provider === 'claude') {
+      if (!modelConfigs.claude.apiKey) {
+        throw new Error('Claude API key not configured');
+      }
+      
+      // Call Claude API using axios
+      const response = await axios.post(
+        'https://api.anthropic.com/v1/messages',
+        {
+          model: modelConfigs.claude.model,
+          max_tokens: 1000,
+          temperature: 0.1,
+          messages: [
+            { role: 'user', content: prompt }
+          ]
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'anthropic-version': '2023-06-01',
+            'x-api-key': modelConfigs.claude.apiKey
+          }
+        }
+      );
+      
+      // Extract the SQL query
+      generatedSQL = response.data.content[0].text.trim();
+    }
+    else {
+      throw new Error(`Unsupported AI provider: ${provider}`);
+    }
     
     // Verify that the SQL only uses tables and columns that exist in the schema
     const sqlCheck = await validateGeneratedSQL(generatedSQL, databaseSchema);
@@ -178,5 +288,7 @@ async function validateGeneratedSQL(sql, schema) {
 }
 
 module.exports = {
-  generateSqlQuery
+  generateSqlQuery,
+  updateModelConfig,
+  getModelConfigs
 }; 

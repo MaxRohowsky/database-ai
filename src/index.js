@@ -72,16 +72,38 @@ function setupIPC() {
   });
 
   // AI operations
-  ipcMain.handle('ai:generateSql', async (_, naturalLanguage, schema) => {
+  ipcMain.handle('ai:generateSql', async (_, naturalLanguage, schema, provider = 'openai') => {
     try {
-      console.log('Generating SQL for query:', naturalLanguage);
+      console.log(`Generating SQL for query using ${provider}:`, naturalLanguage);
       console.log('Using schema with tables:', Object.keys(schema).join(', '));
-      const sql = await aiService.generateSqlQuery(naturalLanguage, schema);
+      const sql = await aiService.generateSqlQuery(naturalLanguage, schema, provider);
       console.log('Generated SQL:', sql);
       return sql;
     } catch (error) {
       console.error('SQL generation error:', error);
       throw new Error(`SQL generation failed: ${error.message}`);
+    }
+  });
+  
+  // AI model configuration
+  ipcMain.handle('ai:updateModelConfig', async (_, provider, config) => {
+    try {
+      console.log(`Updating ${provider} model configuration`);
+      const success = aiService.updateModelConfig(provider, config);
+      return success;
+    } catch (error) {
+      console.error('Model configuration update error:', error);
+      throw new Error(`Failed to update model configuration: ${error.message}`);
+    }
+  });
+  
+  ipcMain.handle('ai:getModelConfigs', async () => {
+    try {
+      console.log('Getting model configurations');
+      return aiService.getModelConfigs();
+    } catch (error) {
+      console.error('Get model configurations error:', error);
+      throw new Error(`Failed to get model configurations: ${error.message}`);
     }
   });
 }

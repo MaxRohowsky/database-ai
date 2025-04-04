@@ -29,6 +29,17 @@ const connectionDropdownTrigger = document.querySelector('.dropdown-trigger');
 const databaseList = document.getElementById('database-list');
 const closeModalBtn = document.querySelector('.close-modal');
 
+// AI Model Elements
+const aiModelStatus = document.getElementById('ai-model-status');
+const aiModelList = document.getElementById('ai-model-list');
+const configureAiBtn = document.getElementById('configure-ai-btn');
+const aiModal = document.getElementById('ai-modal');
+const aiConfigForm = document.getElementById('ai-config-form');
+const openaiApiKey = document.getElementById('openai-api-key');
+const openaiModel = document.getElementById('openai-model');
+const claudeApiKey = document.getElementById('claude-api-key');
+const claudeModel = document.getElementById('claude-model');
+
 // Global state
 let databaseSchema = null;
 let currentSqlQuery = null;
@@ -36,6 +47,9 @@ let currentChatId = `chat-${Date.now()}`;
 let chatHistory = [];
 let databaseConnections = [];
 let currentConnectionId = null;
+let currentAiProvider = 'openai'; // Default AI provider
+let inputHistory = []; // Store user input history
+let inputHistoryIndex = -1; // Current position in input history
 
 // Initialize the application
 async function init() {
@@ -53,6 +67,54 @@ async function init() {
   
   // Load chat history
   loadChatHistory();
+  
+  // Load AI configurations
+  loadAiConfigurations();
+  
+  // Initialize AI model list
+  renderAiModelList();
+  
+  // Add dropdown toggle handlers
+  aiModelStatus.addEventListener('click', toggleAiModelDropdown);
+  connectionStatus.addEventListener('click', toggleConnectionDropdown);
+}
+
+// Toggle AI model dropdown
+function toggleAiModelDropdown(event) {
+  event.stopPropagation();
+  const dropdown = aiModelStatus.parentElement.querySelector('.connection-dropdown');
+  dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+  
+  // Close connection dropdown if open
+  const connectionDropdown = connectionStatus.parentElement.querySelector('.connection-dropdown');
+  connectionDropdown.style.display = 'none';
+  
+  // Close dropdown when clicking outside
+  document.addEventListener('click', function closeDropdown(e) {
+    if (!aiModelStatus.parentElement.contains(e.target)) {
+      dropdown.style.display = 'none';
+      document.removeEventListener('click', closeDropdown);
+    }
+  });
+}
+
+// Toggle connection dropdown
+function toggleConnectionDropdown(event) {
+  event.stopPropagation();
+  const dropdown = connectionStatus.parentElement.querySelector('.connection-dropdown');
+  dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+  
+  // Close AI model dropdown if open
+  const aiModelDropdown = aiModelStatus.parentElement.querySelector('.connection-dropdown');
+  aiModelDropdown.style.display = 'none';
+  
+  // Close dropdown when clicking outside
+  document.addEventListener('click', function closeDropdown(e) {
+    if (!connectionStatus.parentElement.contains(e.target)) {
+      dropdown.style.display = 'none';
+      document.removeEventListener('click', closeDropdown);
+    }
+  });
 }
 
 // Load database connections from local storage
@@ -358,6 +420,124 @@ function displayStatusMessage(message, isError = false) {
   }, 5000);
 }
 
+// Load AI configurations from local storage and update the service
+async function loadAiConfigurations() {
+  try {
+    // Get saved API keys from localStorage
+    const savedOpenAiKey = localStorage.getItem('openai_api_key');
+    const savedOpenAiModel = localStorage.getItem('openai_model') || 'gpt-3.5-turbo';
+    const savedClaudeKey = localStorage.getItem('claude_api_key');
+    const savedClaudeModel = localStorage.getItem('claude_model') || 'claude-3-opus-20240229';
+    
+    // Get last used AI provider
+    const lastAiProvider = localStorage.getItem('current_ai_provider') || 'openai';
+    currentAiProvider = lastAiProvider;
+    
+    // Update OpenAI configuration if we have a key
+    if (savedOpenAiKey) {
+      await window.api.updateModelConfig('openai', {
+        apiKey: savedOpenAiKey,
+        model: savedOpenAiModel
+      });
+      
+      // Also update the form values
+      openaiApiKey.value = savedOpenAiKey;
+      openaiModel.value = savedOpenAiModel;
+    }
+    
+    // Update Claude configuration if we have a key
+    if (savedClaudeKey) {
+      await window.api.updateModelConfig('claude', {
+        apiKey: savedClaudeKey,
+        model: savedClaudeModel
+      });
+      
+      // Also update the form values
+      claudeApiKey.value = savedClaudeKey;
+      claudeModel.value = savedClaudeModel;
+    }
+    
+    // Update UI to show current provider
+    updateAiModelStatus(currentAiProvider);
+    
+  } catch (error) {
+    console.error('Error loading AI configurations:', error);
+    displayStatusMessage('Error loading AI configurations', true);
+  }
+}
+
+// Render the AI model list
+function renderAiModelList() {
+  aiModelList.innerHTML = '';
+  
+  // OpenAI option
+  const openAiItem = document.createElement('div');
+  openAiItem.className = `connection-item ${currentAiProvider === 'openai' ? 'active' : ''}`;
+  openAiItem.setAttribute('data-provider', 'openai');
+  openAiItem.textContent = 'OpenAI';
+  openAiItem.addEventListener('click', () => {
+    setCurrentAiProvider('openai');
+  });
+  
+  // Claude option
+  const claudeItem = document.createElement('div');
+  claudeItem.className = `connection-item ${currentAiProvider === 'claude' ? 'active' : ''}`;
+  claudeItem.setAttribute('data-provider', 'claude');
+  claudeItem.textContent = 'Claude';
+  claudeItem.addEventListener('click', () => {
+    setCurrentAiProvider('claude');
+  });
+  
+  aiModelList.appendChild(openAiItem);
+  aiModelList.appendChild(claudeItem);
+}
+
+// Set the current AI provider
+function setCurrentAiProvider(provider) {
+  // Check if provider has an API key
+  const hasApiKey = provider === 'openai' ? 
+    !!localStorage.getItem('openai_api_key') : 
+    !!localStorage.getItem('claude_api_key');
+  
+  if (!hasApiKey) {
+    displayStatusMessage(`Please configure ${provider === 'openai' ? 'OpenAI' : 'Claude'} API key first`, true);
+    showAiConfigModal();
+    return;
+  }
+  
+  currentAiProvider = provider;
+  localStorage.setItem('current_ai_provider', provider);
+  updateAiModelStatus(provider);
+  renderAiModelList();
+  
+  displayStatusMessage(`Now using ${provider === 'openai' ? 'OpenAI' : 'Claude'} for SQL generation`);
+}
+
+// Update AI model status in the UI
+function updateAiModelStatus(provider) {
+  const modelName = provider === 'openai' ? 
+    (localStorage.getItem('openai_model') || 'GPT-3.5 Turbo') : 
+    (localStorage.getItem('claude_model') || 'Claude 3 Opus');
+  
+  aiModelStatus.textContent = `AI Model: ${provider === 'openai' ? 'OpenAI' : 'Claude'} (${modelName.split('-').pop()})`;
+}
+
+// Show AI configuration modal
+function showAiConfigModal() {
+  aiModal.classList.add('show');
+  
+  // Fill in saved values
+  openaiApiKey.value = localStorage.getItem('openai_api_key') || '';
+  openaiModel.value = localStorage.getItem('openai_model') || 'gpt-3.5-turbo';
+  claudeApiKey.value = localStorage.getItem('claude_api_key') || '';
+  claudeModel.value = localStorage.getItem('claude_model') || 'claude-3-opus-20240229';
+}
+
+// Hide AI configuration modal
+function hideAiConfigModal() {
+  aiModal.classList.remove('show');
+}
+
 // Generate SQL from natural language
 async function generateSql() {
   const naturalLanguage = naturalQueryInput.value.trim();
@@ -378,15 +558,27 @@ async function generateSql() {
     return;
   }
   
+  // Add to input history if not empty and not duplicate of last entry
+  if (naturalLanguage !== '' && (inputHistory.length === 0 || inputHistory[0] !== naturalLanguage)) {
+    // Add to the beginning of the array
+    inputHistory.unshift(naturalLanguage);
+    // Limit history size to 50 items
+    if (inputHistory.length > 50) {
+      inputHistory.pop();
+    }
+    // Reset history index
+    inputHistoryIndex = -1;
+  }
+  
   // Add user query to chat
   addUserMessage(naturalLanguage);
   
   try {
-    displayStatusMessage(`Generating SQL...`);
+    displayStatusMessage(`Generating SQL with ${currentAiProvider}...`);
     generateBtn.disabled = true;
     
-    // Call the AI service to generate SQL
-    currentSqlQuery = await window.api.generateSql(naturalLanguage, databaseSchema);
+    // Call the AI service to generate SQL with the selected provider
+    currentSqlQuery = await window.api.generateSql(naturalLanguage, databaseSchema, currentAiProvider);
     
     // Add the SQL message to chat
     addSqlMessage(currentSqlQuery);
@@ -919,20 +1111,125 @@ deleteConnectionBtn.addEventListener('click', () => {
   }
 });
 
-// Close modal when clicking outside
+// AI configuration modal events
+configureAiBtn.addEventListener('click', showAiConfigModal);
+aiModal.querySelector('.close-modal').addEventListener('click', hideAiConfigModal);
+aiConfigForm.addEventListener('submit', handleAiConfigFormSubmit);
+
+// Close modals when clicking outside
 connectionModal.addEventListener('click', (e) => {
   if (e.target === connectionModal) {
     hideConnectionModal();
   }
 });
 
-// Enter key in textarea
+aiModal.addEventListener('click', (e) => {
+  if (e.target === aiModal) {
+    hideAiConfigModal();
+  }
+});
+
+// Enter key in textarea and keyboard history navigation
 naturalQueryInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
-    generateSql();
+    // If input is empty and we have a SQL query to execute, run it
+    if (naturalQueryInput.value.trim() === '' && currentSqlQuery) {
+      executeQuery();
+    } else {
+      // Otherwise generate SQL from the user input
+      generateSql();
+    }
+  }
+  // Handle up arrow key for input history
+  else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    
+    // Only proceed if there's history
+    if (inputHistory.length > 0) {
+      // Save current input if we're just starting to navigate history
+      if (inputHistoryIndex === -1 && naturalQueryInput.value.trim() !== '') {
+        // Temporarily store current input
+        inputHistory.unshift(naturalQueryInput.value);
+        // Update index to point to this temporary entry
+        inputHistoryIndex = 0;
+      }
+      
+      // Move to next item in history
+      inputHistoryIndex = Math.min(inputHistoryIndex + 1, inputHistory.length - 1);
+      naturalQueryInput.value = inputHistory[inputHistoryIndex];
+      
+      // Put cursor at the end of the text
+      setTimeout(() => {
+        naturalQueryInput.selectionStart = naturalQueryInput.selectionEnd = naturalQueryInput.value.length;
+      }, 0);
+    }
+  }
+  // Handle down arrow key for input history
+  else if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    
+    if (inputHistoryIndex > -1) {
+      // Move to previous item in history or back to empty
+      inputHistoryIndex--;
+      
+      if (inputHistoryIndex === -1) {
+        // If we were on a temporary entry, remove it
+        if (naturalQueryInput.value === inputHistory[0]) {
+          inputHistory.shift();
+        }
+        naturalQueryInput.value = '';
+      } else {
+        naturalQueryInput.value = inputHistory[inputHistoryIndex];
+        
+        // Put cursor at the end of the text
+        setTimeout(() => {
+          naturalQueryInput.selectionStart = naturalQueryInput.selectionEnd = naturalQueryInput.value.length;
+        }, 0);
+      }
+    }
   }
 });
+
+// Handle AI config form submission
+async function handleAiConfigFormSubmit(e) {
+  e.preventDefault();
+  
+  // Save OpenAI config
+  const openaiKeyValue = openaiApiKey.value.trim();
+  const openaiModelValue = openaiModel.value;
+  
+  if (openaiKeyValue) {
+    localStorage.setItem('openai_api_key', openaiKeyValue);
+    localStorage.setItem('openai_model', openaiModelValue);
+    
+    // Update the model config
+    await window.api.updateModelConfig('openai', {
+      apiKey: openaiKeyValue,
+      model: openaiModelValue
+    });
+  }
+  
+  // Save Claude config
+  const claudeKeyValue = claudeApiKey.value.trim();
+  const claudeModelValue = claudeModel.value;
+  
+  if (claudeKeyValue) {
+    localStorage.setItem('claude_api_key', claudeKeyValue);
+    localStorage.setItem('claude_model', claudeModelValue);
+    
+    // Update the model config
+    await window.api.updateModelConfig('claude', {
+      apiKey: claudeKeyValue,
+      model: claudeModelValue
+    });
+  }
+  
+  // Update status and close modal
+  updateAiModelStatus(currentAiProvider);
+  hideAiConfigModal();
+  displayStatusMessage('AI configurations saved successfully');
+}
 
 // Delete a chat from history
 function deleteChat(chatId) {

@@ -561,10 +561,6 @@ footer {
   z-index: 10;
 }
 
-.db-connection-selector:hover .connection-dropdown {
-  display: block;
-}
-
 .dropdown-content {
   max-height: 250px;
   overflow-y: auto;
@@ -746,4 +742,54 @@ footer {
 
 .danger-btn:hover {
   background-color: #c62828;
+}
+
+/* AI Model Selector */
+.ai-model-selector {
+  position: relative;
+  display: inline-block;
+  margin-right: 15px;
+}
+
+.ai-model-indicator {
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  margin-top: 5px;
+  display: inline-block;
+  background-color: #4a86e8;
+  color: white;
+}
+
+/* Form section styles */
+.form-section {
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.form-section h3 {
+  font-size: 16px;
+  margin-bottom: 15px;
+  color: var(--secondary-color);
+}
+
+.form-section:last-child {
+  border-bottom: none;
+}
+
+/* Dropdown styling for select elements */
+select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 14px;
+  background-color: white;
+  cursor: pointer;
+}
+
+select:focus {
+  border-color: var(--primary-color);
+  outline: none;
 }

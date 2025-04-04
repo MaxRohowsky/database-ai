@@ -12,5 +12,7 @@ contextBridge.exposeInMainWorld('api', {
   executeQuery: (query) => ipcRenderer.invoke('db:executeQuery', query),
   
   // AI operations
-  generateSql: (naturalLanguage, schema) => ipcRenderer.invoke('ai:generateSql', naturalLanguage, schema)
+  generateSql: (naturalLanguage, schema, provider) => ipcRenderer.invoke('ai:generateSql', naturalLanguage, schema, provider),
+  updateModelConfig: (provider, config) => ipcRenderer.invoke('ai:updateModelConfig', provider, config),
+  getModelConfigs: () => ipcRenderer.invoke('ai:getModelConfigs')
 });

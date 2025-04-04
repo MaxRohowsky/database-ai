@@ -27,6 +27,20 @@
             <button id="delete-chat-btn" class="icon-btn" title="Delete current chat">🗑️</button>
             <div class="status-info">
               This space is for general information e.g. connection status & data
+              
+              <!-- AI Model Selector Dropdown -->
+              <div class="ai-model-selector">
+                <div id="ai-model-status" class="ai-model-indicator dropdown-trigger">AI Model: OpenAI</div>
+                <div class="connection-dropdown">
+                  <div id="ai-model-list" class="dropdown-content">
+                    <!-- AI model options will be added here dynamically -->
+                  </div>
+                  <div class="dropdown-footer">
+                    <button id="configure-ai-btn" class="connection-btn">Configure AI Models</button>
+                  </div>
+                </div>
+              </div>
+              
               <!-- Database connection dropdown -->
               <div class="db-connection-selector">
                 <div id="connection-status" class="status disconnected dropdown-trigger">Database: Disconnected</div>
@@ -126,6 +140,56 @@
             <button type="submit" class="primary-btn">Save Connection</button>
             <button type="button" id="test-connection-btn" class="secondary-btn">Test Connection</button>
             <button type="button" id="delete-connection-btn" class="danger-btn" style="display: none;">Delete Connection</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    
+    <!-- Modal for AI Configuration -->
+    <div id="ai-modal" class="modal">
+      <div class="modal-content">
+        <span class="close-modal">&times;</span>
+        <h2>Configure AI Models</h2>
+        
+        <form id="ai-config-form">
+          <div class="form-section">
+            <h3>OpenAI Configuration</h3>
+            
+            <div class="form-group">
+              <label for="openai-api-key">API Key:</label>
+              <input type="password" id="openai-api-key" placeholder="sk-...">
+            </div>
+            
+            <div class="form-group">
+              <label for="openai-model">Model:</label>
+              <select id="openai-model">
+                <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                <option value="gpt-4">GPT-4</option>
+                <option value="gpt-4-turbo">GPT-4 Turbo</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="form-section">
+            <h3>Claude Configuration</h3>
+            
+            <div class="form-group">
+              <label for="claude-api-key">API Key:</label>
+              <input type="password" id="claude-api-key" placeholder="sk-...">
+            </div>
+            
+            <div class="form-group">
+              <label for="claude-model">Model:</label>
+              <select id="claude-model">
+                <option value="claude-3-opus-20240229">Claude 3 Opus</option>
+                <option value="claude-3-sonnet-20240229">Claude 3 Sonnet</option>
+                <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="form-actions">
+            <button type="submit" class="primary-btn">Save Configuration</button>
           </div>
         </form>
       </div>
